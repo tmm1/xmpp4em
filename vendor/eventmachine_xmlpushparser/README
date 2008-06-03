@@ -1,0 +1,6 @@
+$Id$
+
+This is a Ruby extension which wraps the xmlParseChunk functionality of the Gnome libxml2 library.
+As far as I know, these bindings are not available in Ruby/libxml2, and similar
+functionality is not provided by REXML.
+
