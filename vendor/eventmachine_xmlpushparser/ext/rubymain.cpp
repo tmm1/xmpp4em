@@ -281,7 +281,16 @@ RubyXmlPushParser_t::SaxError
 
 void RubyXmlPushParser_t::SaxError()
 {
-	rb_funcall (Myself, rb_intern ("error"), 1, INT2FIX (xmlCtxtGetLastError (Context)->code));
+	int length = 0;
+	char *err = xmlCtxtGetLastError (Context)->message;
+
+	if (!err) {
+		err = (const char *)"";
+	} else {
+		length = strlen(err)-1;
+	}
+
+	rb_funcall (Myself, rb_intern ("error"), 1, rb_str_new((const char*)err, length));
 	rb_funcall (Myself, rb_intern ("close_connection"), 0);
 }
 
