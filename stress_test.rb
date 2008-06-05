@@ -17,7 +17,7 @@ num.times do |i|
 
     if connected == num
       p ['done', Time.now - started]
-      exit
+      exit unless ARGV[1]
     end
   end
 
