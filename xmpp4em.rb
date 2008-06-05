@@ -13,17 +13,6 @@ require 'xmpp4r/sasl'
 require 'em'
 
 module XMPP4EM
-  class Buffer < StringIO
-    def append(s)
-      self.string[0..pos] = ''
-      self.pos = 0
-      self.string << s
-    end
-
-    def stat()  self  end
-    def pipe?() false end
-  end
-
   class NotConnected < Exception; end
 
   class Connection < EventMachine::Connection
@@ -40,46 +29,46 @@ module XMPP4EM
     end
     attr_reader :stream_features
 
-    def receive_data data
-      log "<< #{data}"
+    include EventMachine::XmlPushParser
 
-      @buffer.append(data)
+    def start_document
+    end
+    
+    def end_document
+    end
+    
+    def start_element name, attrs
+      e = REXML::Element.new(name)
+      e.add_attributes attrs
+      
+      @current = @current.nil? ? e : @current.add_element(e)
 
-      unless @parser
-        @parser = REXML::Parsers::SAX2Parser.new(@buffer)
-
-        @parser.listen(:start_element) do |uri, localname, qname, attributes|
-          e = REXML::Element::new(qname)
-          e.add_attributes attributes
-
-          @current = @current.nil? ? e : @current.add_element(e)
-
-          if @current.name == 'stream' and not @started
-            @started = true
-            process
-            @current = nil
-          end
-        end
-
-        @parser.listen(:end_element) do |uri, localname, qname|
-          if qname == 'stream:stream' and @current.nil?
-            @started = false
-          else
-            if @current.parent
-              @current = @current.parent
-            else
-              process
-              @current = nil
-            end
-          end
-        end
-
-        @parser.listen(:characters) do |text|
-          @current.text = @current.text.to_s + text if @current
+      if @current.name == 'stream' and not @started
+        @started = true
+        process
+        @current = nil
+      end
+    end
+    
+    def end_element name
+      if name == 'stream:stream' and @current.nil?
+        @started = false
+      else
+        if @current.parent
+          @current = @current.parent
+        else
+          process
+          @current = nil
         end
       end
+    end
 
-      @parser.parse
+    def characters text
+      @current.text = @current.text.to_s + text if @current
+    end
+
+    def error *args
+      p ['error', *args]
     end
 
     def send data, &blk
@@ -92,9 +81,7 @@ module XMPP4EM
     end
 
     def init
-      @buffer = Buffer.new
       @started = false
-      @parser = nil
       send "<?xml version='1.0'?><stream:stream xmlns:stream='http://etherx.jabber.org/streams' xmlns='jabber:client' xml:lang='en' version='1.0' to='#{@host}'>"
     end
 
@@ -289,6 +276,7 @@ module XMPP4EM
       when 'success', 'failure'
         if stanza.name == 'success'
           @authenticated = true
+          @connection.reset_parser
           @connection.init
         end
 

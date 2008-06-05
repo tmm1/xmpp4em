@@ -26,4 +26,6 @@ module EventMachine
   end unless EM.respond_to? :old_run
 end
 
+require 'evma_xmlpushparser'
+
 EM.epoll

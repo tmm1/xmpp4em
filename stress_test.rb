@@ -3,7 +3,8 @@ require 'xmpp4em'
 started = Time.now
 users = {}
 connected = 0
-num = ARGV[0].to_i || 1000
+num = Integer(ARGV[0])
+num = 1000 if num < 1
 
 EM.epoll
 
