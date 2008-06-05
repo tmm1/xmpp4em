@@ -31,12 +31,6 @@ module XMPP4EM
 
     include EventMachine::XmlPushParser
 
-    def start_document
-    end
-    
-    def end_document
-    end
-    
     def start_element name, attrs
       e = REXML::Element.new(name)
       e.add_attributes attrs
@@ -71,6 +65,11 @@ module XMPP4EM
       p ['error', *args]
     end
 
+    def receive_data data
+      log "<< #{data}"
+      super
+    end
+
     def send data, &blk
       log ">> #{data}"
       send_data data.to_s
@@ -81,8 +80,9 @@ module XMPP4EM
     end
 
     def init
+      send "<?xml version='1.0' ?>" unless @started
       @started = false
-      send "<?xml version='1.0'?><stream:stream xmlns:stream='http://etherx.jabber.org/streams' xmlns='jabber:client' xml:lang='en' version='1.0' to='#{@host}'>"
+      send "<stream:stream xmlns:stream='http://etherx.jabber.org/streams' xmlns='jabber:client' xml:lang='en' version='1.0' to='#{@host}'>"
     end
 
     private
