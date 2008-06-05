@@ -45,18 +45,19 @@ class RubyXmlPushParser_t
 
 		void ConsumeData (const char *, int);
 		void Close();
+		void ScheduleReset();
 
 		void SaxStartDocument();
 		void SaxEndDocument();
 		void SaxStartElement (const xmlChar*, const xmlChar**);
 		void SaxEndElement (const xmlChar*);
 		void SaxCharacters (const xmlChar*, int);
-		void SaxReset();
 		void SaxError();
 
 	private:
 		VALUE Myself;
 		xmlParserCtxtPtr Context;
+		bool bReset;
 };
 
 
@@ -140,7 +141,8 @@ RubyXmlPushParser_t::RubyXmlPushParser_t
 ****************************************/
 
 RubyXmlPushParser_t::RubyXmlPushParser_t (VALUE v):
-	Myself (v)
+	Myself (v),
+	bReset (false)
 {
 	/* Note that we're bypassing the typical convention of passing the
 	 * first four bytes of the document to the parser-create function.
@@ -156,25 +158,6 @@ RubyXmlPushParser_t::RubyXmlPushParser_t (VALUE v):
 		throw std::runtime_error ("no push-parser context");
 }
 
-/*****************************
-RubyXmlPushParser_t::SaxReset
-*****************************/
-
-void RubyXmlPushParser_t::SaxReset()
-{
-	if (!Context)
-		throw std::runtime_error ("no push-parser context");
-
-	// XXX: figure out how to free the existing Context
-	// xmlCtxtReset (Context); // segfault
-	// xmlClearParserCtxt (Context); // segfault
-	// xmlFreeParserCtxt (Context); // segfault
-	// xmlCtxtResetPush (Context, "", 0, "", NULL);
-
-	Context = xmlCreatePushParserCtxt (&saxHandler, (void*)this, "", 0, "");
-	if (!Context)
-		throw std::runtime_error ("no push-parser context");
-}
 
 /********************************
 RubyXmlPushParser_t::ConsumeData
@@ -187,16 +170,29 @@ void RubyXmlPushParser_t::ConsumeData (const char *data, int length)
 	 * the encoding of a new document), the library's internal buffers
 	 * are very small.
 	 */
-	while (length > 0) {
-		int l = length;
-		if (l > 50)
-			l = 50;
-		xmlParseChunk (Context, data, l, 0);
-		data += l;
-		length -= l;
+	for (int i=0; i < length; i++) {
+		if (bReset) {
+			// don't send a good-bye kiss to the existing context because it'll
+			// probably kick out a malformation error.
+			xmlFreeParserCtxt (Context);
+			Context = xmlCreatePushParserCtxt (&saxHandler, (void*)this, "", 0, "");
+			if (!Context)
+				throw std::runtime_error ("no push-parser context");
+			bReset = false;
+		}
+		xmlParseChunk (Context, data+i, 1, 0);
 	}
 }
 
+
+/**********************************
+RubyXmlPushParser_t::ScheduleReset
+**********************************/
+
+void RubyXmlPushParser_t::ScheduleReset()
+{
+	bReset = true;
+}
 
 /**************************
 RubyXmlPushParser_t::Close
@@ -301,17 +297,13 @@ RubyXmlPushParser_t::SaxError
 
 void RubyXmlPushParser_t::SaxError()
 {
-	int length = 0;
-	char *err = xmlCtxtGetLastError (Context)->message;
-
-	if (!err) {
-		err = (const char *)"";
-	} else {
-		length = strlen(err)-1;
+	int e = xmlCtxtGetLastError (Context)->code;
+	if (e == XML_ERR_DOCUMENT_END)
+		;
+	else {
+		rb_funcall (Myself, rb_intern ("error"), 1, INT2FIX (e));
+		rb_funcall (Myself, rb_intern ("close_connection"), 0);
 	}
-
-	rb_funcall (Myself, rb_intern ("error"), 1, rb_str_new((const char*)err, length));
-	rb_funcall (Myself, rb_intern ("close_connection"), 0);
 }
 
 /***********
@@ -356,16 +348,18 @@ static VALUE t_unbind (VALUE self)
 	return Qnil;
 }
 
-/*******
+
+/**************
 t_reset_parser
-*******/
+**************/
 
 static VALUE t_reset_parser (VALUE self)
 {
 	RubyXmlPushParser_t *pp = (RubyXmlPushParser_t*)(NUM2INT (rb_ivar_get (self, rb_intern ("@xml__push__parser__object"))));
 	if (!pp)
 		throw std::runtime_error ("no xml push-parser object");
-	pp->SaxReset();
+	pp->ScheduleReset();
+
 	return Qnil;
 }
 
@@ -467,6 +461,6 @@ extern "C" void Init_rubyxmlpushparser()
 	rb_define_method (XmlModule, "start_element", (VALUE(*)(...))t_start_element, 2);
 	rb_define_method (XmlModule, "end_element", (VALUE(*)(...))t_end_element, 1);
 	rb_define_method (XmlModule, "characters", (VALUE(*)(...))t_characters, 1);
-	rb_define_method (XmlModule, "reset_parser", (VALUE(*)(...))t_reset_parser, 0);
 	rb_define_method (XmlModule, "error", (VALUE(*)(...))t_error, 1);
+	rb_define_method (XmlModule, "reset_parser", (VALUE(*)(...))t_reset_parser, 0);
 }
