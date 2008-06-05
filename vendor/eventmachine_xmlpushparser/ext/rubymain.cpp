@@ -51,6 +51,7 @@ class RubyXmlPushParser_t
 		void SaxStartElement (const xmlChar*, const xmlChar**);
 		void SaxEndElement (const xmlChar*);
 		void SaxCharacters (const xmlChar*, int);
+		void SaxReset();
 		void SaxError();
 
 	private:
@@ -155,6 +156,25 @@ RubyXmlPushParser_t::RubyXmlPushParser_t (VALUE v):
 		throw std::runtime_error ("no push-parser context");
 }
 
+/*****************************
+RubyXmlPushParser_t::SaxReset
+*****************************/
+
+void RubyXmlPushParser_t::SaxReset()
+{
+	if (!Context)
+		throw std::runtime_error ("no push-parser context");
+
+	// XXX: figure out how to free the existing Context
+	// xmlCtxtReset (Context); // segfault
+	// xmlClearParserCtxt (Context); // segfault
+	// xmlFreeParserCtxt (Context); // segfault
+	// xmlCtxtResetPush (Context, "", 0, "", NULL);
+
+	Context = xmlCreatePushParserCtxt (&saxHandler, (void*)this, "", 0, "");
+	if (!Context)
+		throw std::runtime_error ("no push-parser context");
+}
 
 /********************************
 RubyXmlPushParser_t::ConsumeData
@@ -329,10 +349,23 @@ t_unbind
 
 static VALUE t_unbind (VALUE self)
 {
-	RubyXmlPushParser_t *pp = new RubyXmlPushParser_t (self);
+	RubyXmlPushParser_t *pp = (RubyXmlPushParser_t*)(NUM2INT (rb_ivar_get (self, rb_intern ("@xml__push__parser__object"))));
 	if (!pp)
 		throw std::runtime_error ("no xml push-parser object");
 	pp->Close();
+	return Qnil;
+}
+
+/*******
+t_reset_parser
+*******/
+
+static VALUE t_reset_parser (VALUE self)
+{
+	RubyXmlPushParser_t *pp = (RubyXmlPushParser_t*)(NUM2INT (rb_ivar_get (self, rb_intern ("@xml__push__parser__object"))));
+	if (!pp)
+		throw std::runtime_error ("no xml push-parser object");
+	pp->SaxReset();
 	return Qnil;
 }
 
@@ -434,6 +467,6 @@ extern "C" void Init_rubyxmlpushparser()
 	rb_define_method (XmlModule, "start_element", (VALUE(*)(...))t_start_element, 2);
 	rb_define_method (XmlModule, "end_element", (VALUE(*)(...))t_end_element, 1);
 	rb_define_method (XmlModule, "characters", (VALUE(*)(...))t_characters, 1);
+	rb_define_method (XmlModule, "reset_parser", (VALUE(*)(...))t_reset_parser, 0);
 	rb_define_method (XmlModule, "error", (VALUE(*)(...))t_error, 1);
 }
-
