@@ -64,8 +64,8 @@ when /solaris/
 
   dir_config('xml2')
   unless have_library('xml2') and
-	  have_header('libxml/parser.h') and
-	  have_header('libxml/tree.h')
+	  find_header('libxml/parser.h', '/usr/include/libxml2') and
+	  find_header('libxml/tree.h', '/usr/include/libxml2')
     exit
   end
 
@@ -78,8 +78,8 @@ when /darwin/
 
   dir_config('xml2')
   unless have_library('xml2') and
-	  have_header('libxml/parser.h') and
-	  have_header('libxml/tree.h')
+	  find_header('libxml/parser.h', '/usr/include/libxml2') and
+	  find_header('libxml/tree.h', '/usr/include/libxml2')
     exit
   end
   # on Unix we need a g++ link, not gcc.
@@ -95,8 +95,8 @@ else
 
   dir_config('xml2')
   unless have_library('xml2') and
-	  have_header('libxml/parser.h') and
-	  have_header('libxml/tree.h')
+	  find_header('libxml/parser.h', '/usr/include/libxml2') and
+	  find_header('libxml/tree.h', '/usr/include/libxml2')
       exit
   end
   # on Unix we need a g++ link, not gcc.
