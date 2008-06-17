@@ -1,4 +1,3 @@
 Simple XMPP client built on EventMachine.
 
-Requires eventmachine-xmlpushparser. To install on OSX:
-  gem install eventmachine-xmlpushparser -- --with-xml2-include=/usr/include/libxml2
+Requires eventmachine-xmlpushparser (in vendor/) and eventmachine 0.12.1

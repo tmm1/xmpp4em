@@ -171,12 +171,12 @@ module XMPP4EM
     end
 
     def connect host = jid.domain, port = 5222
-      EM.run(true) do
+      EM.run {
         EM.connect host, port, Connection, host do |conn|
           @connection = conn
           conn.client = self
         end
-      end
+      }
     end
 
     def connected?
