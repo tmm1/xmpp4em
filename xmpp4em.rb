@@ -25,6 +25,7 @@ module XMPP4EM
     def connection_completed
       log 'connected'
       @stream_features, @stream_mechanisms = {}, []
+      @keepalive = EM::Timer.new(60){ send_data("\n") }
       init
     end
     attr_reader :stream_features
@@ -76,6 +77,10 @@ module XMPP4EM
     end
 
     def unbind
+      if @keepalive
+        @keepalive.cancel
+        @keepalive = nil
+      end
       log 'disconnected'
     end
 
