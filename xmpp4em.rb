@@ -165,7 +165,7 @@ module XMPP4EM
 
       @opts = { :auto_register => false }.merge(opts)
     end
-    attr_reader :connection
+    attr_reader :connection, :user
 
     def jid
       @jid ||= if @user.kind_of?(Jabber::JID)
