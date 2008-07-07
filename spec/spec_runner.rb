@@ -6,13 +6,14 @@ shared 'eventmachine' do
   $bacon_thread = Thread.current
   def wait
     Thread.stop
-    EM.add_timer(10) do
+    @timer = EM::Timer.new(10) do
       wake
       should.flunk('waited too long')
     end
   end
   def wake
     $bacon_thread.wakeup
+    @timer.cancel if @timer
   end
 end
 

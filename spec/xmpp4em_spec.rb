@@ -37,4 +37,21 @@ describe 'XMPP4EM' do
 
     received.should == 'hello'
   end
+
+  should 'fire disconnect callback and reconnect' do
+    user = XMPP4EM::Client.new('user@localhost', 'user', :auto_register => true)
+    user.on(:disconnect){ wake }
+    user.connect 'localhost', 5333 # invalid port
+    wait
+
+    user.should.not.be.connected?
+
+    user.instance_variable_get('@callbacks')[:disconnect] = []
+    user.connection.port = 5222
+    user.on(:login){ wake }
+    user.reconnect
+    wait
+
+    user.should.be.connected?
+  end
 end

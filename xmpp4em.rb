@@ -16,11 +16,11 @@ module XMPP4EM
   class NotConnected < Exception; end
 
   class Connection < EventMachine::Connection
-    def initialize host
-      @host = host
+    def initialize host, port
+      @host, @port = host, port
       @client = nil
     end
-    attr_accessor :client
+    attr_accessor :client, :host, :port
 
     def connection_completed
       log 'connected'
@@ -81,7 +81,12 @@ module XMPP4EM
         @keepalive.cancel
         @keepalive = nil
       end
+      @client.on(:disconnect)
       log 'disconnected'
+    end
+
+    def reconnect host = @host, port = @port
+      super
     end
 
     def init
@@ -156,11 +161,12 @@ module XMPP4EM
       @id_callbacks  = {}
 
       @callbacks = {
-        :message   => [],
-        :presence  => [],
-        :iq        => [],
-        :exception => [],
-        :login     => []
+        :message    => [],
+        :presence   => [],
+        :iq         => [],
+        :exception  => [],
+        :login      => [],
+        :disconnect => []
       }
 
       @opts = { :auto_register => false }.merge(opts)
@@ -177,11 +183,15 @@ module XMPP4EM
 
     def connect host = jid.domain, port = 5222
       EM.run {
-        EM.connect host, port, Connection, host do |conn|
+        EM.connect host, port, Connection, host, port do |conn|
           @connection = conn
           conn.client = self
         end
       }
+    end
+
+    def reconnect
+      @connection.reconnect
     end
 
     def connected?
@@ -268,9 +278,7 @@ module XMPP4EM
             send(iq){ |reply|
               if reply.type == :result
 
-                @callbacks[:login].each do |blk|
-                  blk.call(stanza)
-                end
+                on(:login, stanza)
               end
             }
           end
@@ -291,25 +299,25 @@ module XMPP4EM
 
       case stanza
       when Jabber::Message
-        @callbacks[:message].each do |blk|
-          blk.call(stanza)
-        end
+        on(:message, stanza)
 
       when Jabber::Iq
-        @callbacks[:iq].each do |blk|
-          blk.call(stanza)
-        end
+        on(:iq, stanza)
 
       when Jabber::Presence
-        @callbacks[:presence].each do |blk|
-          blk.call(stanza)
-        end
+        on(:presence, stanza)
       end
 
     end
     
-    def on type, &blk
-      @callbacks[type] << blk
+    def on type, *args, &blk
+      if blk
+        @callbacks[type] << blk
+      else
+        @callbacks[type].each do |blk|
+          blk.call(*args)
+        end
+      end
     end
     
     def add_message_callback  (&blk) on :message,   &blk end
