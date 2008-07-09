@@ -21,6 +21,9 @@ EM.run{
         EM.stop_event_loop
       end
     end
+    users[i].on(:disconnect) do
+      p ['disconnected', i]
+    end
   
     users[i].connect('localhost', 5222)
   end
